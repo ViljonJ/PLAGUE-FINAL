@@ -1,0 +1,98 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Primitives (Phase 3)
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "hiteshraj345@gmail.com" && request.auth.token.email_verified == true
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Blueprint (Phase 4.1)
+    function isValidUserStats(data) {
+      let requiredFields = ['xp', 'rank', 'streak'];
+      return data.keys().hasAll(requiredFields) &&
+             data.xp is int && data.xp >= 0 &&
+             data.rank is int && data.rank >= 0 &&
+             data.streak is int && data.streak >= 0 &&
+             (!('completedSteps' in data) || (data.completedSteps is list && data.completedSteps.size() <= 1000)) &&
+             (!('mutations' in data) || (data.mutations is list && data.mutations.size() <= 100)) &&
+             (!('dailyQuests' in data) || (data.dailyQuests is list && data.dailyQuests.size() <= 20)) &&
+             (!('activePathways' in data) || (data.activePathways is list && data.activePathways.size() <= 50)) &&
+             (!('completedPathways' in data) || (data.completedPathways is list && data.completedPathways.size() <= 200)) &&
+             (!('skills' in data) || (data.skills is list && data.skills.size() <= 100)) &&
+             (!('externalCourses' in data) || (data.externalCourses is list && data.externalCourses.size() <= 50)) &&
+             (!('currentPath' in data) || (data.currentPath is map || data.currentPath == null)) &&
+             (!('subject' in data) || data.subject is string) &&
+             (!('role' in data) || data.role is string) &&
+             (!('name' in data) || data.name is string) &&
+             (!('learningStyle' in data) || data.learningStyle is string) &&
+             (!('goals' in data) || data.goals is string) &&
+             (!('level' in data) || data.level is string) &&
+             (!('schedule' in data) || (data.schedule is map || data.schedule == null)) &&
+             (!('activityLog' in data) || data.activityLog is map) &&
+             // Size guard to prevent "Denial of Wallet"
+             data.keys().size() <= 30;
+    }
+
+    match /users/{userId} {
+      // 0.2 NO BLANKET READS
+      allow get: if isOwner(userId) || isAdmin();
+      
+      // Admin list only
+      allow list: if isAdmin();
+
+      allow create: if isOwner(userId) && isEmailVerified() && isValidUserStats(incoming()) &&
+                    // Strict key size on create to prevent shadow fields
+                    incoming().keys().size() >= 3 && incoming().keys().size() <= 20;
+
+      allow update: if (isOwner(userId) || isAdmin()) && isEmailVerified() && isValidUserStats(incoming()) && (
+        isAdmin() || (
+          // Identity protection: cannot change role/identity fields once set
+          (!('role' in existing()) || incoming().get('role', existing().role) == existing().role) &&
+          (!('name' in existing()) || incoming().get('name', existing().name) == existing().name) &&
+          // Action-Based Update Gate (Phase 4.2)
+          // Allow all valid fields defined in isValidUserStats if it's the owner
+          true
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // Connection test rule
+    match /test/connection {
+      allow get: if true;
+    }
+  }
+}

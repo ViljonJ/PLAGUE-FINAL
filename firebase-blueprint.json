@@ -1,0 +1,122 @@
+{
+  "entities": {
+    "LearningProfile": {
+      "title": "Learning Profile",
+      "description": "User's preferred learning style and goals.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "learningStyle": { "type": "string", "enum": ["visual", "auditory", "reading", "kinesthetic"] },
+        "goals": { "type": "string" },
+        "level": { "type": "string", "enum": ["beginner", "intermediate", "advanced"] },
+        "subject": { "type": "string" },
+        "specificTopics": { "type": "string" },
+        "importantTopics": { "type": "string" }
+      },
+      "required": ["name", "learningStyle", "goals", "level", "subject"]
+    },
+    "LearningStep": {
+      "title": "Learning Step",
+      "description": "A single step in a learning pathway.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "method": { "type": "string" },
+        "difficulty": { "type": "string" },
+        "estimatedTime": { "type": "string" },
+        "resourceLink": { "type": "string" },
+        "resourceType": { "type": "string", "enum": ["youtube", "course", "article"] },
+        "codingProblems": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      },
+      "required": ["title", "content", "method", "difficulty", "estimatedTime"]
+    },
+    "ActivePathway": {
+      "title": "Active Pathway",
+      "description": "A pathway currently being pursued by the user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "profile": { "$ref": "#/entities/LearningProfile" },
+        "path": { 
+          "type": "object",
+          "properties": {
+            "subject": { "type": "string" },
+            "steps": { "type": "array", "items": { "$ref": "#/entities/LearningStep" } }
+          }
+        },
+        "completedSteps": { "type": "array", "items": { "type": "string" } },
+        "lastAccessed": { "type": "string" },
+        "assessmentAttempts": { "type": "integer" },
+        "assessmentScore": { "type": "number" }
+      },
+      "required": ["id", "profile", "path", "completedSteps", "lastAccessed"]
+    },
+    "CompletedPathway": {
+      "title": "Completed Pathway",
+      "description": "A pathway that has been successfully finished.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "date": { "type": "string" },
+        "year": { "type": "string" },
+        "time": { "type": "string" },
+        "topics": { "type": "array", "items": { "type": "string" } },
+        "steps": { "type": "array", "items": { "$ref": "#/entities/LearningStep" } },
+        "studentName": { "type": "string" },
+        "assessmentScore": { "type": "number" }
+      },
+      "required": ["id", "name", "date", "year", "time", "topics", "steps"]
+    },
+    "UserStats": {
+      "title": "User Stats",
+      "description": "Overall progress and gamification stats for a user.",
+      "type": "object",
+      "properties": {
+        "xp": { "type": "integer" },
+        "rank": { "type": "integer" },
+        "streak": { "type": "integer" },
+        "completedSteps": { "type": "array", "items": { "type": "string" } },
+        "mutations": { "type": "array", "items": { "type": "string" } },
+        "dailyQuests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "xp": { "type": "integer" },
+              "done": { "type": "boolean" }
+            }
+          }
+        },
+        "activePathways": { "type": "array", "items": { "$ref": "#/entities/ActivePathway" } },
+        "completedPathways": { "type": "array", "items": { "$ref": "#/entities/CompletedPathway" } },
+        "schedule": { "type": "object" },
+        "activityLog": { "type": "object" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "externalCourses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "issuer": { "type": "string" },
+              "date": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["xp", "rank", "streak"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserStats",
+      "description": "Master document for user learning state."
+    }
+  }
+}

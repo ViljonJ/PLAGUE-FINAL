@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Remix: PLAGUE v.ui.1",
+  "description": "An AI-powered personalized learning system that adapts to student learning styles, strengths, and weaknesses to generate dynamic learning pathways.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

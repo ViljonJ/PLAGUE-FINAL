@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // VALIDATION BLUEPRINTS
+    function isValidUserStats(data) {
+      return data.keys().hasAll(['xp', 'rank', 'streak']) &&
+             data.xp is int && data.xp >= 0 &&
+             data.rank is int && data.rank >= 0 &&
+             data.streak is int && data.streak >= 0 &&
+             (!('completedSteps' in data) || (data.completedSteps is list && data.completedSteps.size() <= 1000)) &&
+             (!('mutations' in data) || (data.mutations is list && data.mutations.size() <= 100)) &&
+             (!('dailyQuests' in data) || (data.dailyQuests is list && data.dailyQuests.size() <= 20)) &&
+             (!('activePathways' in data) || (data.activePathways is list && data.activePathways.size() <= 50)) &&
+             (!('completedPathways' in data) || (data.completedPathways is list && data.completedPathways.size() <= 200)) &&
+             (!('skills' in data) || (data.skills is list && data.skills.size() <= 100)) &&
+             (!('externalCourses' in data) || (data.externalCourses is list && data.externalCourses.size() <= 50));
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      
+      // We don't allow list unless admin
+      allow list: if false;
+
+      allow create: if isOwner(userId) && isEmailVerified() && isValidUserStats(incoming()) && 
+                    incoming().keys().size() >= 3; // Basic safety
+
+      allow update: if isOwner(userId) && isEmailVerified() && isValidUserStats(incoming()) && (
+        // Identity protection: can't change certain fields if they exist
+        (!('role' in existing()) || incoming().role == existing().role)
+      );
+
+      allow delete: if false; // Only admin via another path or manual intervention
+    }
+  }
+}
