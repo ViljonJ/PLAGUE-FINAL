@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@400;700&family=EB+Garamond:italic,wght@0,400;0,700;1,400&family=Courier+Prime:wght@400;700&display=swap');
 @import "katex/dist/katex.min.css";
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -11,15 +12,15 @@
 
 @layer base {
   :root {
-    --bg-main: #f8f9fa;
+    --bg-main: #F2F2ED;
     --text-main: #050505;
     --text-secondary: rgba(0, 0, 0, 0.6);
-    --card-bg: rgba(255, 255, 255, 0.9);
-    --card-border: rgba(0, 0, 0, 0.1);
+    --card-bg: #FFFFFF;
+    --card-border: rgba(0, 0, 0, 0.25);
     --shadow-color: rgba(0, 0, 0, 1);
-    --input-bg: #ffffff;
+    --input-bg: #FFFFFF;
     --input-text: #050505;
-    --input-border: rgba(0, 0, 0, 0.1);
+    --input-border: rgba(0, 0, 0, 0.3);
     --placeholder: rgba(0, 0, 0, 0.4);
     --shadow-primary: rgba(0, 0, 0, 1);
     --shadow-secondary: rgba(0, 0, 0, 0.1);
@@ -57,55 +58,6 @@
   }
 
   /* Specific override for white backgrounds is now handled by variables */
-}
-
-/* Strict Light Theme Visibility Override */
-.light * {
-  color: #000000 !important;
-}
-
-.light input,
-.light textarea {
-  color: #000000 !important;
-  caret-color: #000000 !important;
-}
-
-.light input::placeholder,
-.light textarea::placeholder {
-  color: #555555 !important;
-}
-
-/* Force white text for Nexus button even in light mode */
-.light .back-to-nexus-btn,
-.light .back-to-nexus-btn * {
-  color: #ffffff !important;
-}
-
-/* Force white text for specific black-background elements */
-.light .force-white,
-.light .force-white * {
-  color: #ffffff !important;
-}
-
-/* Force accent orange color to remain orange in light mode */
-.light .text-orange-500,
-.light .text-orange-400,
-.light .text-orange-600,
-.light .text-[#FF9413],
-.light .text-[#f97316],
-.light .text-orange-500/60,
-.light .text-orange-500\/60,
-.light [style*="color: rgb(255, 148, 19)"],
-.light [style*="color: #FF9413"],
-.light .accent-orange,
-.light .accent-orange * {
-  color: #FF9413 !important;
-}
-
-/* Also preserve orange backgrounds and borders if needed, but the prompt primarily asked for text */
-.light .border-orange-500,
-.light .border-[#FF9413] {
-  border-color: #FF9413 !important;
 }
 
 /* Global smooth transition for theme change */

@@ -71,26 +71,54 @@ export function doc(dbAlias: any, path: string) {
   return { path };
 }
 
-export async function setDoc(docRef: any, data: any, optionsOptions?: any) {
+export async function setDoc(docRef: any, data: any, optionsOptions?: any, retries = 3): Promise<void> {
   const uid = docRef.path.split('/')[1];
   if (!uid) throw new Error("Invalid document path");
-  const res = await fetch(`/api/users/${uid}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  if (!res.ok) throw new Error("Failed to set document data");
+  try {
+    const res = await fetch(`/api/users/${uid}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      if ([429, 502, 503, 504].includes(res.status) && retries > 0) {
+        await new Promise(r => setTimeout(r, 2000));
+        return setDoc(docRef, data, optionsOptions, retries - 1);
+      }
+      throw new Error(`Failed to set document data. Status: ${res.status}`);
+    }
+  } catch (err) {
+    if (retries > 0) {
+      await new Promise(r => setTimeout(r, 2000));
+      return setDoc(docRef, data, optionsOptions, retries - 1);
+    }
+    throw err;
+  }
 }
 
-export async function updateDoc(docRef: any, data: any) {
+export async function updateDoc(docRef: any, data: any, retries = 3): Promise<void> {
   const uid = docRef.path.split('/')[1];
   if (!uid) throw new Error("Invalid document path");
-  const res = await fetch(`/api/users/${uid}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  if (!res.ok) throw new Error("Failed to update document data");
+  try {
+    const res = await fetch(`/api/users/${uid}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      if ([429, 502, 503, 504].includes(res.status) && retries > 0) {
+        await new Promise(r => setTimeout(r, 2000));
+        return updateDoc(docRef, data, retries - 1);
+      }
+      throw new Error(`Failed to update document data. Status: ${res.status}`);
+    }
+  } catch (err) {
+    if (retries > 0) {
+      await new Promise(r => setTimeout(r, 2000));
+      return updateDoc(docRef, data, retries - 1);
+    }
+    throw err;
+  }
 }
 
 export function onSnapshot(docRef: any, onNext: (snapshot: any) => void, onError?: (error: any) => void) {
@@ -105,13 +133,22 @@ export function onSnapshot(docRef: any, onNext: (snapshot: any) => void, onError
   const fetchDoc = async () => {
     try {
       const res = await fetch(`/api/users/${uid}`);
-      if (res.status === 404) {
-        if (!isUnsubscribed) onNext({ exists: () => false, data: () => null });
-      } else if (res.ok) {
+      const contentType = res.headers.get('content-type');
+      
+      if (res.ok && contentType && contentType.includes('application/json')) {
         const data = await res.json();
         if (!isUnsubscribed) onNext({ exists: () => true, data: () => data });
+      } else if (res.status === 404) {
+        if (!isUnsubscribed) onNext({ exists: () => false, data: () => null });
+      } else if (res.ok && contentType && contentType.includes('text/html')) {
+        // Dev Server Proxy returned HTML string like 'Waking up...' - ignore and try again
+        return;
+      } else if ([429, 502, 503, 504].includes(res.status)) {
+        // Rate limit or Dev Server starting up - ignore and retry
+        return; 
       } else {
-        throw new Error("Failed to fetch document");
+        let errorText = await res.text().catch(() => "Unknown error");
+        throw new Error(`Failed to fetch document. Status: ${res.status}. Response: ${errorText.substring(0, 50)}`);
       }
     } catch (e) {
       if (!isUnsubscribed && onError) onError(e);
@@ -121,8 +158,8 @@ export function onSnapshot(docRef: any, onNext: (snapshot: any) => void, onError
   // Initial fetch
   fetchDoc();
   
-  // Poll every 10 seconds to act like real-time updates
-  const intervalId = setInterval(fetchDoc, 10000);
+  // Poll every 20 seconds to act like real-time updates and avoid rate limits
+  const intervalId = setInterval(fetchDoc, 20000);
   
   return () => {
     isUnsubscribed = true;
@@ -130,18 +167,35 @@ export function onSnapshot(docRef: any, onNext: (snapshot: any) => void, onError
   };
 }
 
-export async function getDoc(docRef: any) {
+export async function getDoc(docRef: any, retries = 3): Promise<any> {
   const uid = docRef.path.split('/')[1];
   if (!uid) throw new Error("Invalid document path");
   
-  const res = await fetch(`/api/users/${uid}`);
-  if (res.status === 404) {
-    return { exists: () => false, data: () => null };
-  } else if (res.ok) {
-    const data = await res.json();
-    return { exists: () => true, data: () => data };
-  } else {
-    throw new Error("Failed to get document");
+  try {
+    const res = await fetch(`/api/users/${uid}`);
+    
+    const contentType = res.headers.get('content-type');
+    if (res.ok && contentType && contentType.includes('application/json')) {
+      const data = await res.json();
+      return { exists: () => true, data: () => data };
+    } else if (res.status === 404) {
+      return { exists: () => false, data: () => null };
+    } else if ((res.ok && contentType && contentType.includes('text/html')) || [429, 502, 503, 504].includes(res.status)) {
+      if (retries > 0) {
+        await new Promise(r => setTimeout(r, 2000));
+        return getDoc(docRef, retries - 1);
+      }
+      throw new Error(`Server is starting up. Please try again in a few moments.`);
+    } else {
+      let errorText = await res.text().catch(() => "Unknown error");
+      throw new Error(`Failed to get document. Status: ${res.status}. Response: ${errorText.substring(0, 50)}`);
+    }
+  } catch (error) {
+    if (retries > 0) {
+      await new Promise(r => setTimeout(r, 2000));
+      return getDoc(docRef, retries - 1);
+    }
+    throw error;
   }
 }
 

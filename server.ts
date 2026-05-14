@@ -91,42 +91,61 @@ async function startServer() {
 
   const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
 
+  // Fallback in-memory map for when MongoDB is not connected
+  const inMemoryDB = new Map<string, any>();
+
   app.get("/api/users/:uid", async (req, res) => {
-    if (!mongoose.connection.readyState) return res.status(503).json({ error: "DB not connected" });
-    try {
-      const user = await UserModel.findOne({ uid: req.params.uid });
+    if (!mongoose.connection.readyState) {
+      const user = inMemoryDB.get(req.params.uid);
       if (!user) return res.status(404).json({ error: "User not found" });
-      res.json(user.toObject());
+      return res.json(user);
+    }
+    try {
+      const user = await UserModel.findOne({ uid: req.params.uid } as any);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json(user);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });
 
   app.post("/api/users/:uid", async (req, res) => {
-    if (!mongoose.connection.readyState) return res.status(503).json({ error: "DB not connected" });
+    if (!mongoose.connection.readyState) {
+      const { uid, ...data } = req.body;
+      const existing = inMemoryDB.get(req.params.uid) || { uid: req.params.uid };
+      const updated = { ...existing, ...data };
+      inMemoryDB.set(req.params.uid, updated);
+      return res.json(updated);
+    }
     try {
       const { uid, ...data } = req.body;
       const user = await UserModel.findOneAndUpdate(
-        { uid: req.params.uid },
+        { uid: req.params.uid } as any,
         { $set: data },
         { new: true, upsert: true }
       );
-      res.json(user.toObject());
+      res.json(user);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });
 
   app.put("/api/users/:uid", async (req, res) => {
-    if (!mongoose.connection.readyState) return res.status(503).json({ error: "DB not connected" });
+    if (!mongoose.connection.readyState) {
+      const { uid, ...data } = req.body;
+      const existing = inMemoryDB.get(req.params.uid) || { uid: req.params.uid };
+      const updated = { ...existing, ...data };
+      inMemoryDB.set(req.params.uid, updated);
+      return res.json(updated);
+    }
     try {
       const { uid, ...data } = req.body;
       const user = await UserModel.findOneAndUpdate(
-        { uid: req.params.uid },
+        { uid: req.params.uid } as any,
         { $set: data },
         { new: true, upsert: true }
       );
-      res.json(user.toObject());
+      res.json(user);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

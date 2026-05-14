@@ -80,7 +80,6 @@ service cloud.firestore {
         isAdmin() || (
           // Identity protection: cannot change role/identity fields once set
           (!('role' in existing()) || incoming().get('role', existing().role) == existing().role) &&
-          (!('name' in existing()) || incoming().get('name', existing().name) == existing().name) &&
           // Action-Based Update Gate (Phase 4.2)
           // Allow all valid fields defined in isValidUserStats if it's the owner
           true
