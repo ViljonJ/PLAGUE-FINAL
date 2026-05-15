@@ -2,7 +2,13 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Mail, Lock, LogIn, UserPlus } from "lucide-react";
 import { auth, googleProvider } from "../firebase";
-import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import {
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  fetchSignInMethodsForEmail,
+} from "firebase/auth";
 import { cn } from "../lib/utils";
 
 interface LoginModalProps {
@@ -21,14 +27,14 @@ export const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
   const getErrorMessage = (error: any, isLoginMode: boolean) => {
     switch (error.code) {
       case "auth/email-already-in-use":
-        return "Email already exists! Please try a different email or switch to login.";
+        return "Email already exists! If you originally signed up with Google, please continue with Google. Otherwise, switch to login.";
       case "auth/invalid-email":
         return "That email doesn't look right. Please check for typos and try again.";
       case "auth/user-not-found":
         return "We couldn't find an account with that email. Please check the spelling or register a new one.";
       case "auth/wrong-password":
       case "auth/invalid-credential":
-        return "Looks like the email or password is incorrect. Please try again.";
+        return "Looks like the email or password is incorrect. If you used Google to sign up, please use the Google button below.";
       case "auth/weak-password":
         return "That password is too weak. Please use at least 6 characters to keep your account secure.";
       case "auth/operation-not-allowed":
@@ -40,7 +46,10 @@ export const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
       case "auth/too-many-requests":
         return "Too many failed attempts. Please take a break and try again later.";
       default:
-        return error.message || `Failed to ${isLoginMode ? "login" : "register"}. Please try again.`;
+        return (
+          error.message ||
+          `Failed to ${isLoginMode ? "login" : "register"}. Please try again.`
+        );
     }
   };
 
@@ -57,21 +66,56 @@ export const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password || (!isLogin && !name)) {
-      setError("Please fill in all required fields to perfectly configure your node!");
+      setError(
+        "Please fill in all required fields to perfectly configure your node!",
+      );
       return;
     }
-    
+
     setIsLoading(true);
     setError(null);
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password,
+        );
         await updateProfile(userCredential.user, { displayName: name });
       }
       onClose();
     } catch (e: any) {
+      if (
+        e.code === "auth/email-already-in-use" ||
+        e.code === "auth/wrong-password" ||
+        e.code === "auth/invalid-credential"
+      ) {
+        try {
+          const methods = await fetchSignInMethodsForEmail(auth, email);
+          console.log("SignIn methods:", methods);
+          if (methods.includes("google.com")) {
+            setError(
+              "This account was created using Google Sign-In. Please continue with Google.",
+            );
+            setIsLoading(false);
+            return;
+          }
+        } catch (fetchError: any) {
+          console.error("fetchSignInMethodsForEmail error:", fetchError);
+          // If email enumeration protection is on, we might not get the methods.
+          // Let's provide a helpful hint if it's a Gmail address.
+          if (email.endsWith("@gmail.com")) {
+            setError(
+              "This account was created using Google Sign-In. Please continue with Google.",
+            );
+            setIsLoading(false);
+            return;
+          }
+          // Otherwise fall back to default error message
+        }
+      }
       setError(getErrorMessage(e, isLogin));
     } finally {
       setIsLoading(false);
@@ -120,7 +164,10 @@ export const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <UserPlus size={16} className="text-[var(--text-secondary)]" />
+                      <UserPlus
+                        size={16}
+                        className="text-[var(--text-secondary)]"
+                      />
                     </div>
                     <input
                       type="text"
@@ -187,7 +234,9 @@ export const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
 
             <div className="my-6 flex items-center">
               <div className="flex-1 h-px bg-[var(--card-border)]"></div>
-              <span className="px-4 text-xs font-black uppercase text-[var(--text-secondary)]">OR</span>
+              <span className="px-4 text-xs font-black uppercase text-[var(--text-secondary)]">
+                OR
+              </span>
               <div className="flex-1 h-px bg-[var(--card-border)]"></div>
             </div>
 
@@ -224,7 +273,9 @@ export const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
               }}
               className="w-full mt-4 text-sm font-bold text-[var(--text-secondary)] hover:text-orange-500 underline decoration-dashed underline-offset-4"
             >
-              {isLogin ? "Not registered? Register here." : "Already registered? Login."}
+              {isLogin
+                ? "Not registered? Register here."
+                : "Already registered? Login."}
             </button>
           </motion.div>
         </div>

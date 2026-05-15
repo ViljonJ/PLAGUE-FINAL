@@ -3,15 +3,17 @@ import { motion } from 'motion/react';
 import { ArrowRight, Bot, Target, RefreshCw } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import BlueprintAgent from './BlueprintAgent';
 
 interface MentorOverviewProps {
   overview: string;
   onContinue: () => void;
   onRegenerate?: () => void;
+  onUpdateBlueprint?: (newOverview: string) => void;
   isRegenerating?: boolean;
 }
 
-export const MentorOverview: React.FC<MentorOverviewProps> = ({ overview, onContinue, onRegenerate, isRegenerating }) => {
+export const MentorOverview: React.FC<MentorOverviewProps> = ({ overview, onContinue, onRegenerate, onUpdateBlueprint, isRegenerating }) => {
   return (
     <div className="min-h-[100dvh] bg-[var(--bg-main)] text-[var(--text-main)] font-sans relative overflow-hidden">
       
@@ -21,9 +23,9 @@ export const MentorOverview: React.FC<MentorOverviewProps> = ({ overview, onCont
       
       <div className="max-w-4xl mx-auto px-6 py-12 md:py-24 space-y-12">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b-4 border-black pb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b-4 border-[var(--text-main)] pb-8">
           <div className="flex items-start gap-6">
-            <div className="bg-black text-white p-4 shrink-0">
+            <div className="shrink-0 pt-2">
               <Bot size={48} className="text-orange-500" />
             </div>
             <div>
@@ -38,7 +40,7 @@ export const MentorOverview: React.FC<MentorOverviewProps> = ({ overview, onCont
               className="flex items-center gap-2 border-4 border-black px-4 py-2 font-black uppercase italic text-sm hover:bg-orange-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1"
             >
               <RefreshCw size={16} className={isRegenerating ? "animate-spin" : ""} />
-              {isRegenerating ? "Updating Blueprint..." : "Update Blueprint"}
+              {isRegenerating ? "Updating..." : "Update"}
             </button>
           )}
         </div>
@@ -53,7 +55,8 @@ export const MentorOverview: React.FC<MentorOverviewProps> = ({ overview, onCont
         </div>
 
         {/* Action Bar */}
-        <div className="fixed top-6 right-6 z-50">
+        <div className="fixed top-6 right-6 z-50 flex flex-row items-center gap-4">
+          <BlueprintAgent currentBlueprint={overview} onUpdateBlueprint={onUpdateBlueprint} />
           <button 
             onClick={onContinue}
             className="group flex items-center justify-between bg-black text-white px-4 py-3 md:px-6 md:py-4 text-base md:text-lg font-black uppercase italic shadow-[6px_6px_0px_0px_rgba(249,115,22,1)] hover:bg-orange-500 hover:text-black transition-colors border-4 border-black"

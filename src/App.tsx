@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   BookOpen,
@@ -58,6 +59,8 @@ import {
   GraduationCap,
   Settings,
   History,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import {
   BarChart,
@@ -115,7 +118,9 @@ import {
 
 import PathwayGenerator from "./components/PathwayGenerator";
 import MentorOverview from "./components/MentorOverview";
+import StudyAssistantAgent from "./components/StudyAssistantAgent";
 import { LoginModal } from "./components/LoginModal";
+import { SupportModal } from "./components/SupportModal";
 
 declare global {
   interface Document {
@@ -1083,7 +1088,7 @@ const Onboarding = ({
                         )}
                       >
                         {(opt as any).icon ? 
-                          React.cloneElement((opt as any).icon as React.ReactElement, { size: 20, className: "md:w-6 md:h-6" }) 
+                          React.cloneElement((opt as any).icon as React.ReactElement<any>, { size: 20, className: "md:w-6 md:h-6" }) 
                           : <ChevronRight size={20} />}
                       </div>
                     </div>
@@ -2043,6 +2048,9 @@ const Dashboard = ({
   })).filter(c => c.modules.length > 0);
   const [courseSearch, setCourseSearch] = useState("");
   const [isCourseDropdownOpen, setIsCourseDropdownOpen] = useState(false);
+  const [isScheduleGeneratorOpen, setIsScheduleGeneratorOpen] = useState(!stats.schedule);
+  const [expandedCourseModules, setExpandedCourseModules] = useState<Record<number, boolean>>({});
+  const [manualTickSchedule, setManualTickSchedule] = useState<Record<number, boolean>>({});
 
   // Prepare data for activity chart
   const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -2313,169 +2321,207 @@ const Dashboard = ({
               <ScrollReveal className="lg:col-span-8" delay={0.2}>
                 <motion.section className="bg-[var(--card-bg)] backdrop-blur-md border-4 border-[var(--card-border)] transition-colors duration-300 p-6 md:p-10 shadow-[var(--shadow-primary)]">
                   <div className="flex items-center justify-between mb-8 md:mb-12">
-                    <div>
-                      <h3 className="text-2xl md:text-4xl font-black uppercase italic">
-                        Neural Schedule
-                      </h3>
-                      <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-[0.2em] md:tracking-[0.3em]">
-                        Temporal Optimization v.2
-                      </p>
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <h3 className="text-2xl md:text-4xl font-black uppercase italic">
+                          Neural Schedule
+                        </h3>
+                        <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-[0.2em] md:tracking-[0.3em]">
+                          Temporal Optimization v.2
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => setIsScheduleGeneratorOpen(!isScheduleGeneratorOpen)}
+                        className="p-2 border-2 border-[var(--card-border)] bg-[var(--bg-main)] text-[var(--text-main)] hover:bg-orange-500 hover:text-black hover:border-orange-500 transition-colors shadow-[4px_4px_0px_0px_var(--shadow-color)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 rounded-full"
+                        title={isScheduleGeneratorOpen ? "Close Generator" : "Open Schedule Generator"}
+                      >
+                        <ChevronDown 
+                          size={24} 
+                          className={cn("transition-transform duration-300", isScheduleGeneratorOpen && "rotate-180")} 
+                        />
+                      </button>
                     </div>
                     <Clock size={24} className="text-orange-500 md:w-8 md:h-8" />
                   </div>
 
-                  {stats.schedule ? (
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {stats.schedule.items.map((item, i) => (
-                          <div
-                            key={i}
-                            className="flex gap-6 items-center p-6 border-2 border-[var(--card-border)] bg-[var(--card-bg)] hover:bg-orange-500/10 transition-colors"
-                          >
-                            <span className="font-mono text-xl font-black">
-                              {item.time}
-                            </span>
-                            <div className="h-10 w-px bg-[var(--card-border)]" />
+                  <AnimatePresence mode="sync">
+                    {isScheduleGeneratorOpen && (
+                      <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden mb-8"
+                      >
+                        <div className="p-6 border-4 border-orange-500 bg-[var(--bg-main)] shadow-[inset_0_4px_12px_rgba(0,0,0,0.2)]">
+                          <h4 className="text-xl font-black uppercase italic tracking-widest mb-6 flex items-center gap-2">
+                            <Zap size={20} className="text-orange-500" /> New Temporal Matrix
+                          </h4>
+                          <div className="mb-6 space-y-6">
                             <div>
-                              <p className="text-lg font-black uppercase italic leading-none mb-1">
-                                {item.activity}
-                              </p>
-                              <span
-                                className={cn(
-                                  "text-[10px] font-black uppercase tracking-widest px-2 py-0.5",
-                                  item.type === "learning"
-                                    ? "bg-orange-500 text-black"
-                                    : item.type === "focus"
-                                      ? "bg-[var(--text-main)] text-[var(--bg-main)]"
-                                      : "bg-[var(--card-border)] text-[var(--text-secondary)]",
-                                )}
-                              >
-                                {item.type}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-8 pt-8 border-t-2 border-dashed border-[var(--card-border)] text-left">
-                        <div className="mb-6 space-y-4">
-                          <div>
-                            <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-orange-500">Modules to Schedule Today</label>
-                            {activeCoursesModules.length > 0 ? (
-                              <div className="max-h-60 overflow-y-auto space-y-4 border-4 border-[var(--card-border)] p-4 bg-[var(--bg-main)]">
-                                {activeCoursesModules.map((course, cIdx) => (
-                                  <div key={cIdx} className="space-y-2">
-                                    <h4 className="text-sm font-black uppercase italic text-[var(--text-main)] border-b-2 border-[var(--card-border)] pb-1 mb-2">{course.subject}</h4>
-                                    {course.modules.map((mod, mIdx) => {
-                                      const combinedMod = `${course.subject}: ${mod}`;
-                                      return (
-                                        <label key={mIdx} className="flex items-start gap-3 cursor-pointer group ml-2">
-                                          <input 
-                                            type="checkbox" 
-                                            className="mt-1 accent-orange-500 w-4 h-4 cursor-pointer"
-                                            checked={selectedDashModules.includes(combinedMod)}
-                                            onChange={(e) => {
-                                              if (e.target.checked) setSelectedDashModules(prev => [...prev, combinedMod]);
-                                              else setSelectedDashModules(prev => prev.filter(m => m !== combinedMod));
-                                            }}
-                                          />
-                                          <span className="text-sm font-bold group-hover:text-orange-500 transition-colors">{mod}</span>
-                                        </label>
-                                      );
-                                    })}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="text-sm italic opacity-50 p-4 border-2 border-[var(--card-border)]">No active learning paths available.</div>
-                            )}
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-orange-500">Total Study Duration</label>
-                            <input 
-                              type="text" 
-                              placeholder="e.g. 2 hours, 30 mins"
-                              value={dashStudyDuration}
-                              onChange={(e) => setDashStudyDuration(e.target.value)}
-                              className="w-full px-4 py-3 bg-[var(--bg-main)] border-2 border-[var(--card-border)] focus:outline-none focus:border-orange-500 font-mono text-sm"
-                            />
-                          </div>
-                        </div>
-                        <PlagueButton
-                          onClick={async () => {
-                            setIsGeneratingSchedule(true);
-                            await onGenerateSchedule(selectedDashModules, dashStudyDuration);
-                            setIsGeneratingSchedule(false);
-                          }}
-                          disabled={isGeneratingSchedule}
-                          className="w-full mt-6"
-                        >
-                          {isGeneratingSchedule
-                            ? "Syncing..."
-                            : "Re-Optimize Neural Spacing"}
-                        </PlagueButton>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-10 bg-white/5 border-2 border-dashed border-[var(--card-border)]">
-                      <p className="text-xl font-black uppercase italic opacity-30 mb-8 max-w-sm mx-auto">
-                        No temporal data optimized for current cycle.
-                      </p>
-                      
-                      <div className="mb-6 space-y-4 max-w-md mx-auto text-left px-6">
-                        <div>
-                          <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-orange-500">Select Modules Today</label>
-                          {activeCoursesModules.length > 0 ? (
-                            <div className="max-h-60 overflow-y-auto space-y-4 border-4 border-[var(--card-border)] p-4 bg-[var(--bg-main)]">
-                              {activeCoursesModules.map((course, cIdx) => (
-                                <div key={cIdx} className="space-y-2">
-                                  <h4 className="text-sm font-black uppercase italic text-[var(--text-main)] border-b-2 border-[var(--card-border)] pb-1 mb-2">{course.subject}</h4>
-                                  {course.modules.map((mod, mIdx) => {
-                                    const combinedMod = `${course.subject}: ${mod}`;
+                              <label className="block text-xs font-bold uppercase tracking-widest mb-3 text-[var(--text-secondary)]">1. Select Modules</label>
+                              {activeCoursesModules.length > 0 ? (
+                                <div className="space-y-4">
+                                  {activeCoursesModules.map((course, cIdx) => {
+                                    const isExpanded = !!expandedCourseModules[cIdx];
                                     return (
-                                      <label key={mIdx} className="flex items-start gap-3 cursor-pointer group ml-2">
-                                        <input 
-                                          type="checkbox" 
-                                          className="mt-1 accent-orange-500 w-4 h-4 cursor-pointer"
-                                          checked={selectedDashModules.includes(combinedMod)}
-                                          onChange={(e) => {
-                                            if (e.target.checked) setSelectedDashModules(prev => [...prev, combinedMod]);
-                                            else setSelectedDashModules(prev => prev.filter(m => m !== combinedMod));
-                                          }}
-                                        />
-                                        <span className="text-sm font-bold group-hover:text-orange-500 transition-colors uppercase tracking-widest">{mod}</span>
-                                      </label>
+                                      <div key={cIdx} className="border-2 border-[var(--card-border)] bg-[var(--card-bg)]">
+                                        <button 
+                                          onClick={() => setExpandedCourseModules(p => ({ ...p, [cIdx]: !p[cIdx] }))}
+                                          className="w-full flex items-center justify-between p-3 focus:outline-none hover:bg-[var(--text-main)]/5 transition-colors"
+                                        >
+                                          <h4 className="text-sm font-black uppercase italic text-[var(--text-main)] truncate text-left pr-4">
+                                            {course.subject}
+                                          </h4>
+                                          <ChevronDown size={16} className={cn("transition-transform shrink-0", isExpanded && "rotate-180")} />
+                                        </button>
+                                        <AnimatePresence>
+                                          {isExpanded && (
+                                            <motion.div 
+                                              initial={{ height: 0 }}
+                                              animate={{ height: "auto" }}
+                                              exit={{ height: 0 }}
+                                              className="overflow-hidden"
+                                            >
+                                              <div className="p-4 border-t-2 border-[var(--card-border)]/50 bg-[var(--bg-main)]/50 space-y-3">
+                                                {course.modules.map((mod, mIdx) => {
+                                                  const combinedMod = `${course.subject}: ${mod}`;
+                                                  const isSelected = selectedDashModules.includes(combinedMod);
+                                                  const isCompletedMod = stats.completedSteps.includes(combinedMod);
+                                                  return (
+                                                    <label key={mIdx} className="flex items-start gap-3 cursor-pointer group hover:bg-[var(--text-main)]/5 p-2 transition-colors rounded">
+                                                      {isCompletedMod ? (
+                                                        <CheckCircle2 size={18} className="mt-0.5 text-green-500 shrink-0" />
+                                                      ) : (
+                                                        <input 
+                                                          type="checkbox" 
+                                                          className="mt-1 accent-orange-500 w-4 h-4 cursor-pointer shrink-0"
+                                                          checked={isSelected}
+                                                          onChange={(e) => {
+                                                            if (e.target.checked) setSelectedDashModules(prev => [...prev, combinedMod]);
+                                                            else setSelectedDashModules(prev => prev.filter(m => m !== combinedMod));
+                                                          }}
+                                                        />
+                                                      )}
+                                                      <span className={cn(
+                                                        "text-sm font-bold uppercase tracking-widest transition-colors",
+                                                        isSelected ? "text-orange-500" : (isCompletedMod ? "text-green-500" : "text-[var(--text-main)] group-hover:text-orange-500/70")
+                                                      )}>
+                                                        {mod}
+                                                      </span>
+                                                    </label>
+                                                  );
+                                                })}
+                                              </div>
+                                            </motion.div>
+                                          )}
+                                        </AnimatePresence>
+                                      </div>
                                     );
                                   })}
                                 </div>
-                              ))}
+                              ) : (
+                                <div className="text-sm italic opacity-50 p-4 border-2 border-[var(--card-border)] bg-[var(--card-bg)]">No active modules to select.</div>
+                              )}
                             </div>
-                          ) : (
-                            <div className="text-sm italic opacity-50 p-4 border-2 border-[var(--card-border)]">No active modules.</div>
-                          )}
+                            <div>
+                              <label className="block text-xs font-bold uppercase tracking-widest mb-3 text-[var(--text-secondary)]">2. Total Duration</label>
+                              <input 
+                                type="text" 
+                                placeholder="e.g. 2 hours"
+                                value={dashStudyDuration}
+                                onChange={(e) => setDashStudyDuration(e.target.value)}
+                                className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] focus:outline-none focus:border-orange-500 font-mono text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)]"
+                              />
+                            </div>
+                          </div>
+
+                          <PlagueButton
+                            onClick={async () => {
+                              setIsGeneratingSchedule(true);
+                              await onGenerateSchedule(selectedDashModules, dashStudyDuration);
+                              setIsGeneratingSchedule(false);
+                              setIsScheduleGeneratorOpen(false);
+                            }}
+                            disabled={isGeneratingSchedule || selectedDashModules.length === 0 || !dashStudyDuration}
+                            className="w-full py-4 text-xl"
+                          >
+                            {isGeneratingSchedule ? "Generating..." : "Generate Optimal Cycle"}
+                          </PlagueButton>
                         </div>
-                        <div>
-                          <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-orange-500">Total Duration</label>
-                          <input 
-                            type="text" 
-                            placeholder="e.g. 2 hours"
-                            value={dashStudyDuration}
-                            onChange={(e) => setDashStudyDuration(e.target.value)}
-                            className="w-full px-4 py-3 bg-[var(--bg-main)] border-2 border-[var(--card-border)] focus:outline-none focus:border-orange-500 font-mono text-sm"
-                          />
-                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {stats.schedule ? (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {stats.schedule.items.map((item, i) => {
+                          const isItemCompletedAutodetect = stats.completedSteps.some(step => {
+                            const stepParts = step.split(':');
+                            if (stepParts.length > 1 && item.activity.toLowerCase().includes(stepParts[1].toLowerCase())) return true;
+                            return false;
+                          });
+                          const isTicked = isItemCompletedAutodetect || !!manualTickSchedule[i];
+
+                          return (
+                            <div
+                              key={i}
+                              className={cn(
+                                "relative flex gap-6 items-center p-6 border-2 transition-colors",
+                                isTicked ? "border-green-500 bg-green-500/10" : "border-[var(--card-border)] bg-[var(--card-bg)] hover:bg-orange-500/10"
+                              )}
+                            >
+                              <span className={cn("font-mono text-xl font-black", isTicked && "text-green-500")}>
+                                {item.time}
+                              </span>
+                              <div className={cn("h-10 w-px", isTicked ? "bg-green-500/30" : "bg-[var(--card-border)]")} />
+                              <div>
+                                <p className={cn("text-lg font-black uppercase italic leading-none mb-1 text-wrap break-words pr-8", isTicked && "text-green-500")}>
+                                  {item.activity}
+                                </p>
+                                <span
+                                  className={cn(
+                                    "text-[10px] font-black uppercase tracking-widest px-2 py-0.5",
+                                    item.type === "learning"
+                                      ? "bg-orange-500 text-black"
+                                      : item.type === "focus"
+                                        ? "bg-[var(--text-main)] text-[var(--bg-main)]"
+                                        : "bg-[var(--card-border)] text-[var(--text-secondary)]",
+                                  )}
+                                >
+                                  {item.type}
+                                </span>
+                              </div>
+                              <div className="absolute bottom-2 right-2">
+                                <label className="flex items-center justify-center cursor-pointer">
+                                  <input 
+                                    type="checkbox" 
+                                    className="w-5 h-5 accent-green-500 cursor-pointer"
+                                    checked={isTicked}
+                                    onChange={(e) => setManualTickSchedule(prev => ({ ...prev, [i]: e.target.checked }))}
+                                  />
+                                </label>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
 
-                      <PlagueButton
-                        onClick={async () => {
-                          setIsGeneratingSchedule(true);
-                          await onGenerateSchedule(selectedDashModules, dashStudyDuration);
-                          setIsGeneratingSchedule(false);
-                        }}
-                        disabled={isGeneratingSchedule}
-                      >
-                        {isGeneratingSchedule ? "Generating..." : "Generate Optimal Cycle"}
-                      </PlagueButton>
                     </div>
+                  ) : (
+                    !isScheduleGeneratorOpen && (
+                      <div className="text-center py-10 bg-white/5 border-2 border-dashed border-[var(--card-border)]">
+                        <p className="text-xl font-black uppercase italic opacity-30 mb-8 max-w-sm mx-auto">
+                          No temporal data optimized for current cycle.
+                        </p>
+                        <PlagueButton
+                          onClick={() => setIsScheduleGeneratorOpen(true)}
+                          variant="secondary"
+                        >
+                          Generate New Schedule
+                        </PlagueButton>
+                      </div>
+                    )
                   )}
                 </motion.section>
               </ScrollReveal>
@@ -2501,17 +2547,11 @@ const Dashboard = ({
                 </div>
                 <div className="flex gap-4">
                   <PlagueButton
-                    onClick={onNewInfection}
-                    className="px-6 py-5 text-xl"
-                  >
-                    Start New Course
-                  </PlagueButton>
-                  <PlagueButton
                     onClick={onOpenGenerator}
-                    variant="secondary"
+                    variant="primary"
                     className="px-6 py-5 text-xl"
                   >
-                    Pathway Generator
+                    Generate Pathway
                   </PlagueButton>
                 </div>
               </div>
@@ -2633,34 +2673,35 @@ const Dashboard = ({
                                         ).toLocaleDateString()}
                                       </span>
                                     </div>
-                                    {isSelected ? (
-                                      <CheckCircle2
-                                        size={24}
-                                        className="text-orange-500"
-                                      />
-                                    ) : (
-                                      <div className="flex items-center gap-2">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (
-                                              confirm(
-                                                "Are you sure you want to purge this neural vector? All progress will be deleted.",
-                                              )
-                                            ) {
-                                              onDeletePathway(ap.id);
-                                            }
-                                          }}
-                                          className="p-2 text-black/20 hover:text-red-500 transition-colors"
-                                        >
-                                          <Trash2 size={20} />
-                                        </button>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (
+                                            window.confirm(
+                                              "Are you sure you want to purge this neural vector? All progress will be deleted.",
+                                            )
+                                          ) {
+                                            onDeletePathway(ap.id);
+                                          }
+                                        }}
+                                        className="p-2 text-black/20 hover:text-red-500 transition-colors z-10"
+                                        title="Unenroll"
+                                      >
+                                        <Trash2 size={20} />
+                                      </button>
+                                      {isSelected ? (
+                                        <CheckCircle2
+                                          size={24}
+                                          className="text-orange-500"
+                                        />
+                                      ) : (
                                         <ChevronRight
                                           size={24}
                                           className="opacity-10 group-hover:opacity-100 group-hover:translate-x-1 transition-all"
                                         />
-                                      </div>
-                                    )}
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               );
@@ -3561,7 +3602,6 @@ const LearningView = ({
   const [isAdapting, setIsAdapting] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [showAdaptModal, setShowAdaptModal] = useState(false);
-  const [focusMode, setFocusMode] = useState(false);
   const [showFullNotes, setShowFullNotes] = useState(false);
 
   const currentStep = path.steps[currentStepIdx];
@@ -3572,6 +3612,19 @@ const LearningView = ({
     stats.completedSteps.includes(getStepKey(stepTitle));
 
   const isCompleted = isStepCompleted(currentStep.title);
+
+  const topRef = useRef<HTMLDivElement>(null);
+  const practiceRef = useRef<HTMLDivElement>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      setScrollProgress(height > 0 ? window.scrollY / height : 0);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     if (!currentNotes && !isGeneratingNotes) {
@@ -3587,7 +3640,42 @@ const LearningView = ({
       // Fix: Use state update instead of direct mutation
       const updatedSteps = [...path.steps];
       updatedSteps[currentStepIdx] = adapted;
-      onUpdatePath({ ...path, steps: updatedSteps });
+      
+      const newPath = { ...path, steps: updatedSteps };
+      onUpdatePath(newPath);
+
+      // Reset progress for this specific module
+      const oldStepKey = `${path.subject}:${currentStep.title}`;
+      const newStepKey = `${path.subject}:${adapted.title}`;
+      
+      if (user) {
+        setStats(prevStats => {
+          const removedCompleted = prevStats.completedSteps.filter(s => s !== oldStepKey && s !== newStepKey);
+          
+          const updatedActive = (prevStats.activePathways || []).map(ap => {
+            if (ap.path.subject === path.subject) {
+              const newApCompleted = ap.completedSteps.filter(t => t !== currentStep.title && t !== adapted.title);
+              return { ...ap, completedSteps: newApCompleted, path: newPath };
+            }
+            return ap;
+          });
+          
+          const newStats = {
+            ...prevStats,
+            completedSteps: removedCompleted,
+            activePathways: updatedActive
+          };
+          
+          import('firebase/firestore').then(({ doc, updateDoc }) => {
+            updateDoc(doc(db, `users/${user.uid}`), { 
+              completedSteps: removedCompleted,
+              activePathways: updatedActive
+            }).catch(console.error);
+          });
+          
+          return newStats;
+        });
+      }
 
       setShowAdaptModal(false);
       setFeedback("");
@@ -3645,23 +3733,10 @@ const LearningView = ({
               />
             </div>
           </div>
-
-          <PlagueButton
-            onClick={() => setFocusMode(!focusMode)}
-            variant="secondary"
-            className={cn(
-              "px-3 py-1.5 md:px-4 md:py-2 border-2 font-black uppercase italic text-[9px] md:text-[10px] tracking-widest transition-all shadow-none",
-              focusMode
-                ? "bg-orange-500 text-black border-orange-500"
-                : "bg-[var(--text-main)] text-[var(--bg-main)] border-[var(--card-border)]",
-            )}
-          >
-            {focusMode ? "Focus" : "Focus Mode"}
-          </PlagueButton>
         </div>
       </header>
 
-      <main className="flex-1 p-6 md:p-16 max-w-5xl mx-auto w-full relative">
+      <main ref={topRef} className="flex-1 p-6 md:p-16 max-w-5xl mx-auto w-full relative">
         {/* Scan Line Effect */}
         <div className="absolute inset-0 pointer-events-none opacity-5">
           <div className="scan-line" />
@@ -3682,7 +3757,7 @@ const LearningView = ({
               <span
                 className={cn(
                   "px-3 py-0.5 md:px-4 md:py-1 border-2 font-black uppercase italic text-[10px] md:text-xs",
-                  focusMode ? "border-[var(--card-border)]" : "border-black",
+                  "border-black",
                 )}
               >
                 {currentStep.method}
@@ -3705,7 +3780,7 @@ const LearningView = ({
           <div
             className={cn(
               "prose prose-xl md:prose-2xl max-w-none font-medium leading-relaxed transition-colors",
-              focusMode ? "text-[var(--text-main)]" : "text-[var(--text-main)]",
+              "text-[var(--text-main)]",
             )}
           >
             <Markdown components={markdownComponents}>
@@ -3929,6 +4004,8 @@ const LearningView = ({
             </motion.div>
           )}
 
+          <div ref={practiceRef} className="scroll-mt-32" />
+
           {currentStep.codingProblems &&
             currentStep.codingProblems.length > 0 && (
               <motion.div
@@ -3990,9 +4067,7 @@ const LearningView = ({
                       rel="noopener noreferrer"
                       className={cn(
                         "p-6 border-4 shadow-[4px_4px_0px_0px_var(--shadow-color)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all group flex flex-col justify-between",
-                        focusMode
-                          ? "bg-white/5 border-[var(--card-border)] text-[var(--text-main)]"
-                          : "bg-white border-black text-black",
+                        "bg-white border-black text-black",
                       )}
                     >
                       <div>
@@ -4021,9 +4096,7 @@ const LearningView = ({
               animate={{ opacity: 1, x: 0 }}
               className={cn(
                 "p-8 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col md:flex-row items-center justify-between gap-6",
-                focusMode
-                  ? "bg-white/5 border-[var(--card-border)]"
-                  : "bg-orange-50",
+                "bg-orange-50",
               )}
             >
               <div className="flex items-center gap-6">
@@ -4079,7 +4152,7 @@ const LearningView = ({
           <div
             className={cn(
               "pt-12 md:pt-16 border-t-4 flex flex-col md:flex-row justify-between items-center gap-6 md:gap-8 pb-12 md:pb-0",
-              focusMode ? "border-[var(--card-border)]" : "border-black",
+              "border-black",
             )}
           >
             <div className="flex flex-col gap-4 w-full md:w-auto">
@@ -4242,6 +4315,27 @@ const LearningView = ({
           />
         )}
       </AnimatePresence>
+
+      {typeof document !== 'undefined' ? createPortal(
+        <div className="fixed top-24 right-6 z-[9999] flex gap-2">
+          <button
+            onClick={() => {
+              if (scrollProgress < 0.5) {
+                practiceRef.current?.scrollIntoView({ behavior: "smooth" });
+              } else {
+                topRef.current?.scrollIntoView({ behavior: "smooth" });
+              }
+            }}
+            className="bg-[var(--bg-main)] text-[var(--text-main)] border-4 border-[var(--text-main)] w-12 h-12 flex items-center justify-center rounded-full hover:bg-[var(--text-main)] hover:text-[var(--bg-main)] transition-colors"
+            title={scrollProgress < 0.5 ? "Practice Code" : "Top"}
+          >
+            {scrollProgress < 0.5 ? <ArrowDown size={24} /> : <ArrowUp size={24} />}
+          </button>
+        </div>,
+        document.body
+      ) : null}
+
+      <StudyAssistantAgent moduleTitle={currentStep.title} moduleContent={currentStep.content} />
     </div>
   );
 };
@@ -4437,6 +4531,7 @@ const ProfileView = ({
   onLogout,
   onUpdateStats,
   onUpdateName,
+  onShowSupport,
 }: {
   profile: LearningProfile;
   stats: UserStats;
@@ -4444,6 +4539,7 @@ const ProfileView = ({
   onLogout: () => void;
   onUpdateStats: (newStats: Partial<UserStats>) => void;
   onUpdateName: (name: string) => void;
+  onShowSupport: () => void;
 }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
@@ -4818,16 +4914,16 @@ const ProfileView = ({
                   <section>
                     <h3 className="text-xs font-black uppercase tracking-widest text-[#526D82] mb-4">Support</h3>
                     <div className="space-y-3">
-                      <a 
-                        href="mailto:support@plague.com"
-                        className="w-full text-left p-4 flex items-center gap-3 bg-[var(--bg-main)] border-2 border-[var(--card-border)] hover:border-orange-500 transition-colors font-bold group text-[var(--text-main)]"
+                      <button 
+                        onClick={onShowSupport}
+                        className="w-full text-left p-4 flex items-center gap-3 bg-[var(--bg-main)] border-2 border-[var(--card-border)] hover:border-orange-500 transition-colors font-bold group text-[var(--text-main)] cursor-pointer"
                       >
                         <Mail size={18} className="text-[#526D82] group-hover:text-orange-500 transition-colors" />
                         <div>
                           <p>Customer Support</p>
                           <p className="text-xs font-mono opacity-50 mt-1">support@plague.com</p>
                         </div>
-                      </a>
+                      </button>
                       <a 
                         href="tel:+18001234567"
                         className="w-full text-left p-4 flex items-center gap-3 bg-[var(--bg-main)] border-2 border-[var(--card-border)] hover:border-orange-500 transition-colors font-bold group text-[var(--text-main)]"
@@ -5580,6 +5676,7 @@ export default function App() {
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
   const [isRegeneratingBlueprint, setIsRegeneratingBlueprint] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
   const [stats, setStats] = useState<UserStats>({
     xp: 0,
     rank: 99,
@@ -5767,6 +5864,58 @@ export default function App() {
         {
           currentPath: newPath,
           activePathways: updatedPathways,
+        },
+        { merge: true },
+      );
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}`);
+    } finally {
+      setIsRegeneratingBlueprint(false);
+    }
+  };
+
+  const handleUpdateBlueprint = async (newOverview: string) => {
+    if (!profile || !user || !path) return;
+    setIsRegeneratingBlueprint(true);
+    try {
+      const { regenerateStepsFromBlueprint } = await import("./services/gemini");
+      const newSteps = await regenerateStepsFromBlueprint(newOverview, path.steps);
+      
+      const newPath = { 
+        ...path, 
+        roadmapOverview: newOverview,
+        steps: newSteps.length > 0 ? newSteps : path.steps 
+      };
+      setPath(newPath);
+
+      const validStepTitles = new Set(newPath.steps.map(s => s.title));
+
+      const updatedPathways = (stats.activePathways || []).map((ap) => {
+        if (ap.path.subject === path.subject) {
+          const cleanCompletedSteps = ap.completedSteps.filter(t => validStepTitles.has(t));
+          return { ...ap, path: newPath, completedSteps: cleanCompletedSteps };
+        }
+        return ap;
+      });
+      
+      let updatedGlobalCompletedSteps = stats.completedSteps;
+      if (stats.completedSteps) {
+        updatedGlobalCompletedSteps = stats.completedSteps.filter(stepKey => {
+          if (!stepKey.startsWith(path.subject + ":")) return true;
+          const title = stepKey.split(":")[1];
+          return validStepTitles.has(title);
+        });
+      }
+
+      setStats((prev) => ({ ...prev, activePathways: updatedPathways, completedSteps: updatedGlobalCompletedSteps }));
+
+      const docPath = `users/${user.uid}`;
+      await setDoc(
+        doc(db, docPath),
+        {
+          currentPath: newPath,
+          activePathways: updatedPathways,
+          completedSteps: updatedGlobalCompletedSteps,
         },
         { merge: true },
       );
@@ -6043,6 +6192,11 @@ export default function App() {
       return;
     }
 
+    if (score < 50) {
+      handleAssessmentFailure(true, score);
+      return;
+    }
+
     console.log("Saving assessment results...", { score });
     const now = new Date();
     const completedPathway: CompletedPathway = {
@@ -6095,25 +6249,56 @@ export default function App() {
     }
   };
 
-  const handleAssessmentFailure = async () => {
+  const handleAssessmentFailure = async (fromScore: boolean = false, score?: number) => {
     if (!user || !path) return;
+
+    let isTwoFails = false;
+    let completedStepsToRemove: string[] = [];
 
     const updatedActivePathways = (stats.activePathways || []).map((ap) => {
       if (ap.path.subject === path.subject) {
-        return { ...ap, assessmentAttempts: (ap.assessmentAttempts || 0) + 1 };
+        const attemptsCount = (ap.assessmentAttempts || 0) + 1;
+        if (attemptsCount >= 2) {
+          isTwoFails = true;
+          if (ap.completedSteps) {
+            completedStepsToRemove = ap.completedSteps.map((title: string) => `${ap.path.subject}:${title}`);
+          }
+          return { ...ap, assessmentAttempts: 0, completedSteps: [] };
+        }
+        return { ...ap, assessmentAttempts: attemptsCount };
       }
       return ap;
     });
 
-    setStats((prev) => ({ ...prev, activePathways: updatedActivePathways }));
+    const newCompletedSteps = isTwoFails
+      ? stats.completedSteps.filter((cs) => !completedStepsToRemove.includes(cs))
+      : stats.completedSteps;
+
+    setStats((prev) => ({ 
+      ...prev, 
+      activePathways: updatedActivePathways,
+      completedSteps: newCompletedSteps
+    }));
+    
     setState("dashboard");
 
     try {
       await updateDoc(doc(db, `users/${user.uid}`), {
         activePathways: updatedActivePathways,
+        completedSteps: newCompletedSteps
       });
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    }
+
+    if (isTwoFails) {
+      alert(`Assessment failed${score !== undefined ? ` with score ${score}%` : ""}. You have failed twice. Please recomplete all modules before trying again.`);
+    } else {
+      if (fromScore) {
+        alert(`Assessment failed! You scored ${score}%. You need at least 50% to pass. Please try again.`);
+      } else {
+        alert("Assessment aborted or failed. Please try again.");
+      }
     }
   };
 
@@ -6176,6 +6361,11 @@ export default function App() {
           isOpen={showLoginModal} 
           onClose={() => setShowLoginModal(false)} 
         />
+        <SupportModal 
+          isOpen={showSupportModal} 
+          onClose={() => setShowSupportModal(false)}
+          userEmail={user?.email || profile?.name}
+        />
         <AnimatePresence mode="wait">
           {state === "landing" && (
             <motion.div
@@ -6226,6 +6416,7 @@ export default function App() {
                 overview={path.roadmapOverview}
                 onContinue={() => setState("dashboard")}
                 onRegenerate={handleRegenerateBlueprint}
+                onUpdateBlueprint={handleUpdateBlueprint}
                 isRegenerating={isRegeneratingBlueprint}
               />
             </motion.div>
@@ -6297,6 +6488,7 @@ export default function App() {
                     }
                   }
                 }}
+                onShowSupport={() => setShowSupportModal(true)}
               />
             </motion.div>
           )}

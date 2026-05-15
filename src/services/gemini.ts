@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 let aiInstance: any = null;
 
-function getAI() {
+export function getAI() {
   if (!aiInstance) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -575,19 +575,121 @@ IMPORTANT FOR RESOURCES in 'steps':
   return JSON.parse(response.text || "{}");
 }
 
-export async function adaptContent(currentStep: LearningStep, feedback: string): Promise<LearningStep> {
+export async function regenerateStepsFromBlueprint(blueprint: string, existingSteps?: LearningStep[]): Promise<LearningStep[]> {
   const ai = getAI();
-  const prompt = `Adapt this learning step content based on feedback:
-  Step: ${JSON.stringify(currentStep)}
-  Feedback: ${feedback}
-  
-  Return a JSON object of the adapted LearningStep.`;
+  let prompt = `Based on the following highly detailed Learning Blueprint, generate the concrete learning steps.
+Your job is to translate the phases and topics in this blueprint into actual actionable steps (modules) to be completed by the student.
+
+Blueprint:
+${blueprint}`;
+
+  if (existingSteps) {
+    prompt += `
+
+IMPORTANT INSTRUCTIONS REGARDING EXISTING PROGRESS:
+The user already has an existing set of modules. You MUST keep the original blueprint and module consistency.
+- ONLY edit what the new blueprint implies (what the user asked to change).
+- DO NOT add new modules or remove existing ones unless the blueprint clearly dictates it.
+- Keep the exact same 'title' string for existing modules that shouldn't change, so that the user's progress is not lost. If you change a module's title, its progress WILL be reset.
+- Maintain the original module list structure and only update/replace/add/remove exactly what is needed based on the new blueprint.
+
+Existing Modules for Reference:
+${JSON.stringify(existingSteps.map(s => ({ title: s.title, content: s.content })), null, 2)}
+`;
+  }
 
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: prompt,
     config: {
-      responseMimeType: "application/json"
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          steps: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                content: { type: Type.STRING },
+                method: { type: Type.STRING },
+                difficulty: { type: Type.STRING },
+                estimatedTime: { type: Type.STRING },
+                resourceLink: { type: Type.STRING },
+                resourceType: { type: Type.STRING, enum: ['youtube', 'course', 'article'] },
+                youtubeVideos: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING },
+                      url: { type: Type.STRING },
+                      channel: { type: Type.STRING }
+                    },
+                    required: ["title", "url", "channel"]
+                  }
+                },
+                codingProblems: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING },
+                      url: { type: Type.STRING },
+                      platform: { type: Type.STRING }
+                    },
+                    required: ["title", "url", "platform"]
+                  }
+                }
+              },
+              required: ["title", "content", "method", "difficulty", "estimatedTime", "resourceLink", "resourceType"]
+            }
+          }
+        },
+        required: ["steps"]
+      }
+    }
+  });
+
+  const parsed = JSON.parse(response.text || "{}");
+  return parsed.steps || [];
+}
+
+export async function adaptContent(currentStep: LearningStep, feedback: string): Promise<LearningStep> {
+  const ai = getAI();
+  const prompt = `Adapt this learning step content based on user feedback:
+  Step: ${JSON.stringify(currentStep)}
+  Feedback: ${feedback}
+  
+  IMPORTANT: Return a JSON object of the adapted LearningStep matching the schema.
+  CRITICAL: If adapting an existing step, you MUST keep the exact same "title" string as the original step unless the user's feedback explicitly demands a completely different topic. If you change the title, the user's completion progress for this module will be reset.`;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          content: { type: Type.STRING },
+          method: { type: Type.STRING },
+          difficulty: { type: Type.STRING },
+          estimatedTime: { type: Type.STRING },
+          resourceLink: { type: Type.STRING },
+          resourceType: { type: Type.STRING, enum: ['video', 'article', 'book', 'interactive', 'github'] },
+          practiceExercises: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: { title: { type: Type.STRING }, link: { type: Type.STRING } }
+            }
+          }
+        },
+        required: ["title", "content", "method", "difficulty", "estimatedTime"]
+      }
     }
   });
 

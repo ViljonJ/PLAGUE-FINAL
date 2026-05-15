@@ -61,8 +61,17 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     }
   }
   const errorString = JSON.stringify(errInfo);
-  console.error('Database Error: ', errorString);
-  throw new Error(errorString);
+  if (errInfo.error.includes('Missing or insufficient permissions')) {
+    console.error('Firestore Security Rules Error: ', errorString);
+    throw new Error(errorString);
+  } else {
+    console.error('Database Error: ', errorString);
+    if (errInfo.error.includes('Failed to fetch')) {
+        // Just log fetch errors
+        return;
+    }
+    throw new Error(errInfo.error);
+  }
 }
 
 // ----- MONGODB SHIMS FOR FIRESTORE FUNCTIONS -----
@@ -130,7 +139,7 @@ export function onSnapshot(docRef: any, onNext: (snapshot: any) => void, onError
   
   let isUnsubscribed = false;
   
-  const fetchDoc = async () => {
+  const fetchDoc = async (isInitial: boolean) => {
     try {
       const res = await fetch(`/api/users/${uid}`);
       const contentType = res.headers.get('content-type');
@@ -141,25 +150,30 @@ export function onSnapshot(docRef: any, onNext: (snapshot: any) => void, onError
       } else if (res.status === 404) {
         if (!isUnsubscribed) onNext({ exists: () => false, data: () => null });
       } else if (res.ok && contentType && contentType.includes('text/html')) {
-        // Dev Server Proxy returned HTML string like 'Waking up...' - ignore and try again
+        // Dev Server Proxy returned HTML string like 'Waking up...'
+        if (isInitial && !isUnsubscribed) setTimeout(() => fetchDoc(true), 2000);
         return;
       } else if ([429, 502, 503, 504].includes(res.status)) {
-        // Rate limit or Dev Server starting up - ignore and retry
+        if (isInitial && !isUnsubscribed) setTimeout(() => fetchDoc(true), 2000);
         return; 
       } else {
         let errorText = await res.text().catch(() => "Unknown error");
         throw new Error(`Failed to fetch document. Status: ${res.status}. Response: ${errorText.substring(0, 50)}`);
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e.message === 'Failed to fetch' || (e.name === 'TypeError' && e.message.includes('fetch'))) {
+        if (isInitial && !isUnsubscribed) setTimeout(() => fetchDoc(true), 2000);
+        return; // Ignore network errors, retry if initial, else wait for next poll
+      }
       if (!isUnsubscribed && onError) onError(e);
     }
   };
   
   // Initial fetch
-  fetchDoc();
+  fetchDoc(true);
   
   // Poll every 20 seconds to act like real-time updates and avoid rate limits
-  const intervalId = setInterval(fetchDoc, 20000);
+  const intervalId = setInterval(() => fetchDoc(false), 20000);
   
   return () => {
     isUnsubscribed = true;
