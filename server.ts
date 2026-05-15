@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -10,7 +11,7 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.use(express.json());
 
@@ -40,7 +41,6 @@ async function startServer() {
     const { name, email, message } = req.body;
     console.log(`Received contact form from ${name} (${email}): ${message}`);
 
-    // If SMTP is configured, send actual email
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
     const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
@@ -86,10 +86,9 @@ async function startServer() {
 
   const UserSchema = new mongoose.Schema({
     uid: { type: String, required: true, unique: true },
-    // strict: false allows dynamic schema for user stats
   }, { strict: false });
 
-  const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
+  const UserModel = (mongoose.models.User as mongoose.Model<any>) || mongoose.model<any>('User', UserSchema);
 
   // Fallback in-memory map for when MongoDB is not connected
   const inMemoryDB = new Map<string, any>();
@@ -118,13 +117,13 @@ async function startServer() {
       return res.json(updated);
     }
     try {
-      const { uid, ...data } = req.body;
+      const { uid: _uid, ...data } = req.body;
       const user = await UserModel.findOneAndUpdate(
         { uid: req.params.uid } as any,
         { $set: data },
         { new: true, upsert: true }
       );
-      res.json(user);
+      res.json(user?.toObject() ?? {});
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -139,13 +138,13 @@ async function startServer() {
       return res.json(updated);
     }
     try {
-      const { uid, ...data } = req.body;
+      const { uid: _uid, ...data } = req.body;
       const user = await UserModel.findOneAndUpdate(
         { uid: req.params.uid } as any,
         { $set: data },
         { new: true, upsert: true }
       );
-      res.json(user);
+      res.json(user?.toObject() ?? {});
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
