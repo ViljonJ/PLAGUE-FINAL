@@ -701,7 +701,7 @@ const Landing = ({
               <form className="space-y-4 md:space-y-6" onSubmit={handleSubmit}>
                 <div className="space-y-1 md:space-y-2">
                   <label className="text-[10px] md:text-xs font-black uppercase italic text-orange-500 accent-orange">
-                    Mind Identification
+                    Name
                   </label>
                   <input
                     type="text"
@@ -716,7 +716,7 @@ const Landing = ({
                 </div>
                 <div className="space-y-1 md:space-y-2">
                   <label className="text-[10px] md:text-xs font-black uppercase italic text-orange-500 accent-orange">
-                    Transmission Frequency
+                    Email
                   </label>
                   <input
                     type="email"
@@ -731,7 +731,7 @@ const Landing = ({
                 </div>
                 <div className="space-y-1 md:space-y-2">
                   <label className="text-[10px] md:text-xs font-black uppercase italic text-orange-500 accent-orange">
-                    The Message
+                    Message
                   </label>
                   <textarea
                     placeholder="Describe your query..."
@@ -1707,6 +1707,7 @@ const DashboardAIAssistant = ({
                                   try {
                                     const dataUrl = await toPng(el, {
                                       backgroundColor: "#000000",
+                                      fontEmbedCSS: "",
                                     });
                                     const link = document.createElement("a");
                                     link.download = `notes-${notesTopic.toLowerCase().replace(/\\s+/g, "-")}.png`;
@@ -3571,6 +3572,7 @@ const LearningView = ({
   onToggleTheme,
   onBack,
   onCompleteStep,
+  onResetModuleProgress,
   onFinish,
   onUpdatePath,
   initialStepIdx = 0,
@@ -3587,6 +3589,7 @@ const LearningView = ({
   onToggleTheme: (e?: React.MouseEvent) => void;
   onBack: () => void;
   onCompleteStep: (step: LearningStep) => void;
+  onResetModuleProgress?: (oldTitle: string, newTitle: string, newPath: LearningPath) => void;
   onFinish: () => void;
   onUpdatePath: (path: LearningPath) => void;
   initialStepIdx?: number;
@@ -3645,36 +3648,8 @@ const LearningView = ({
       onUpdatePath(newPath);
 
       // Reset progress for this specific module
-      const oldStepKey = `${path.subject}:${currentStep.title}`;
-      const newStepKey = `${path.subject}:${adapted.title}`;
-      
-      if (user) {
-        setStats(prevStats => {
-          const removedCompleted = prevStats.completedSteps.filter(s => s !== oldStepKey && s !== newStepKey);
-          
-          const updatedActive = (prevStats.activePathways || []).map(ap => {
-            if (ap.path.subject === path.subject) {
-              const newApCompleted = ap.completedSteps.filter(t => t !== currentStep.title && t !== adapted.title);
-              return { ...ap, completedSteps: newApCompleted, path: newPath };
-            }
-            return ap;
-          });
-          
-          const newStats = {
-            ...prevStats,
-            completedSteps: removedCompleted,
-            activePathways: updatedActive
-          };
-          
-          import('firebase/firestore').then(({ doc, updateDoc }) => {
-            updateDoc(doc(db, `users/${user.uid}`), { 
-              completedSteps: removedCompleted,
-              activePathways: updatedActive
-            }).catch(console.error);
-          });
-          
-          return newStats;
-        });
+      if (onResetModuleProgress) {
+        onResetModuleProgress(currentStep.title, adapted.title, newPath);
       }
 
       setShowAdaptModal(false);
@@ -4925,13 +4900,13 @@ const ProfileView = ({
                         </div>
                       </button>
                       <a 
-                        href="tel:+18001234567"
+                        href="tel:+919500564504"
                         className="w-full text-left p-4 flex items-center gap-3 bg-[var(--bg-main)] border-2 border-[var(--card-border)] hover:border-orange-500 transition-colors font-bold group text-[var(--text-main)]"
                       >
                         <Phone size={18} className="text-[#526D82] group-hover:text-orange-500 transition-colors" />
                         <div>
                           <p>Contact Us (Calls)</p>
-                          <p className="text-xs font-mono opacity-50 mt-1">+1 800 123 4567</p>
+                          <p className="text-xs font-mono opacity-50 mt-1">+91 95005 64504</p>
                         </div>
                       </a>
                     </div>
@@ -5439,9 +5414,9 @@ const CompletionModal = ({
     try {
       await new Promise((r) => setTimeout(r, 100));
       const dataUrl = await toPng(certRef.current, {
-        cacheBust: true,
         quality: 1,
         backgroundColor: "#ffffff",
+        fontEmbedCSS: "",
         width: 1400,
         height: 1000,
         style: {
@@ -5562,10 +5537,9 @@ const CompletionModal = ({
               </div>
 
               <div className="text-center relative">
-                <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-20 rotate-12">
-                  <Sparkles size={64} className="text-orange-500" />
+                <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-10 w-48 flex justify-center mt-2">
                 </div>
-                <div className="w-48 h-px bg-black mb-4 mx-auto" />
+                <div className="w-48 h-px bg-black mb-4 mx-auto mt-8" />
                 <p className="font-mono text-[10px] font-black uppercase tracking-widest leading-none text-black">
                   Director of Synthesis
                 </p>
@@ -5593,7 +5567,7 @@ const CompletionModal = ({
               disabled={isCapturing}
               className="flex-[2] py-6 text-xl"
             >
-              {isCapturing ? "Transmitting..." : "Download Certificate"}{" "}
+              {isCapturing ? "Downloading..." : "Download Certificate"}{" "}
               <CheckCircle2 className="ml-2" />
             </PlagueButton>
             {onReview && steps && (
@@ -6103,6 +6077,41 @@ export default function App() {
     }
   };
 
+  const handleResetModuleProgress = async (oldTitle: string, newTitle: string, newPath: LearningPath) => {
+    if (!user || !path) return;
+
+    const oldStepKey = `${path.subject}:${oldTitle}`;
+    const newStepKey = `${path.subject}:${newTitle}`;
+
+    const removedCompleted = stats.completedSteps.filter(s => s !== oldStepKey && s !== newStepKey);
+          
+    const updatedActive = (stats.activePathways || []).map(ap => {
+      if (ap.path.subject === path.subject) {
+        const newApCompleted = ap.completedSteps.filter(t => t !== oldTitle && t !== newTitle);
+        return { ...ap, completedSteps: newApCompleted, path: newPath };
+      }
+      return ap;
+    });
+
+    const newStats = {
+      ...stats,
+      completedSteps: removedCompleted,
+      activePathways: updatedActive
+    };
+
+    setStats(newStats);
+
+    try {
+      await updateDoc(doc(db, `users/${user.uid}`), { 
+        completedSteps: removedCompleted,
+        activePathways: updatedActive
+      });
+    } catch (e) {
+      console.error(e);
+      handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
   const handleCompleteStep = async (step: LearningStep) => {
     if (!user || !profile || !path) return;
 
@@ -6537,6 +6546,7 @@ export default function App() {
                   setState("dashboard");
                 }}
                 onCompleteStep={handleCompleteStep}
+                onResetModuleProgress={handleResetModuleProgress}
                 onFinish={() => {
                   // This is now handled by handleCompleteStep triggering assessment
                 }}
